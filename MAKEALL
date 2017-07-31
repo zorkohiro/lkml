@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Copyright (c) 2017 by Matthew Jacob
+# All rights reserved.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of The version 2 GNU General Public License as
+#  published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+#
+# Matthew Jacob
+# Feral Software
+# 253 Lowell Street
+# Redwood City, CA 94062
+# USA
+#
+# gpl at feral com
+
+set -o errexit
+
+LOG=/tmp/MAKEALL.log
+NCPU=$(grep processor /proc/cpuinfo | wc -l)
+cp /dev/null $LOG
+#
+# If you want to build everything, uncomment this line
+#
+#MAKEALL="make -j $NCPU all >> $LOG 2>&1"
+#
+
+#
+# Update tags and cscope files
+#
+for d in v*
+do
+ case $d in
+ v3.*|v4.*)
+  cd $d || exit 1
+  if [[ ! -f tags || "X${1}" = "X-f" ]]; then
+   echo $d
+   echo $d >> $LOG
+   make defconfig > /dev/null 2>&1
+   $MAKEALL
+   make tags cscope > /dev/null 2>&1
+  fi
+  cd ..
+  ;;
+ esac
+done
+
+cd linux > /dev/null
+echo linux >> $LOG
+make defconfig > /dev/null 2>&1
+make -j $NCPU all >> $LOG 2>&1
+make tags cscope > /dev/null 2>&1
