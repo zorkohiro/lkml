@@ -26,6 +26,11 @@
 # gpl at feral com
 
 set -o errexit
+force=0
+
+case $1 in
+-f) force=1;;
+esac
 
 LOG=/tmp/MAKEALL.log
 NCPU=$(grep processor /proc/cpuinfo | wc -l)
@@ -42,10 +47,11 @@ cp /dev/null $LOG
 for d in v*
 do
  case $d in
- v3.*|v4.*)
+ # Change this to other v* patterns to cover more
+ v3.[0-9]|v3.[0-9][0-9]|v4.[0-9]|v4.[0-9][0-9])
+  echo $d
   cd $d || exit 1
-  if [[ ! -f tags || "X${1}" = "X-f" ]]; then
-   echo $d
+  if [[ ! -f tags || $force -gt 0 ]]; then
    echo $d >> $LOG
    make defconfig > /dev/null 2>&1
    $MAKEALL
@@ -56,8 +62,10 @@ do
  esac
 done
 
-cd linux > /dev/null
-echo linux >> $LOG
-make defconfig > /dev/null 2>&1
-make -j $NCPU all >> $LOG 2>&1
-make tags cscope > /dev/null 2>&1
+if [[ -d linux ]]; then
+ cd linux > /dev/null
+ echo linux >> $LOG
+ make defconfig > /dev/null 2>&1
+ make -j $NCPU all >> $LOG 2>&1
+ make tags cscope > /dev/null 2>&1
+fi
