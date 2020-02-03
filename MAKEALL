@@ -48,16 +48,15 @@ for d in v*
 do
  case $d in
  # Change this to other v* patterns to cover more
- v3.[0-9]|v3.[0-9][0-9]|v4.[0-9]|v4.[0-9][0-9])
-  echo $d
-  cd $d || exit 1
+  v2.6.30*|v[345].[0-9])
+  pushd  $d >/dev/null || exit 1
   if [[ ! -f tags || $force -gt 0 ]]; then
    echo $d >> $LOG
    make defconfig > /dev/null 2>&1
    $MAKEALL
    make tags cscope > /dev/null 2>&1
   fi
-  cd ..
+  popd >/dev/null
   ;;
  esac
 done

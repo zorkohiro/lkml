@@ -25,8 +25,8 @@
 #
 # gpl at feral com
 #
-TDIR=/tmp/tdyuuasfas.$$
-LIST=/tmp/asfasc2wsdsaqs.$$
+TDIR=$(mktemp -d)
+LIST=$(mktemp)
 
 STABLE_REPO=${STABLE_REPO:-linux-3.0.y}
 
@@ -130,7 +130,6 @@ for tag in $list; do
 done
 for tag in $list; do
  [[ -d $tag ]] && continue
- echo $tag
  #
  # Clone into new tag
  #
@@ -149,12 +148,14 @@ for tag in $list; do
  find . -type f -print0|xargs -0 chmod 444
  cd .. > /dev/null
  line=$(grep -n ^$tag\$ $LIST |sed 's/:.*$//')
- if [[ $line -gt 1 ]]; then
-  pver=$(head -$((line - 1)) $LIST |tail -1)
-  #
-  # Link files with previous version if possible
-  #
-  link_reduce $tag $pver
+ if [[ -z $NOLINK ]]; then
+  if [[ $line -gt 1 ]]; then
+   pver=$(head -$((line - 1)) $LIST |tail -1)
+   #
+   # Link files with previous version if possible
+   #
+   link_reduce $tag $pver
+  fi
  fi
 done
-
+rm -f $LIST
