@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2017 by Matthew Jacob
+# Copyright (c) 2020 by Matthew Jacob
 # All rights reserved.
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -27,135 +27,57 @@
 #
 TDIR=$(mktemp -d)
 LIST=$(mktemp)
+TAG_LIST=${TAG_LIST-./TAG_LIST}
+PATH=${HOME}/bin:$PATH
+function usage
+{
+ echo "usage: $(basename $0) [ndirs]"
+ exit 1
+}
 
-STABLE_REPO=${STABLE_REPO:-linux-3.0.y}
-
-if [[ ! -e $STABLE_REPO ]]; then
- git clone -n --mirror git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git $STABLE_REPO
+limit=1
+if [[ $# -eq 1 ]]; then
+ case $1 in
+ [1-9]*) limit=$1;;
+ *) usage;;
+ esac
+elif [[ $# -ne 0 ]]; then
+ usage
 fi
 
-function PullAll
-{
- git branch -r | grep -v '\->' | while read remote; do
-  git branch --track "${remote#origin/}" "$remote" > /dev/null 2>&1
- done
- git fetch --all
- git pull --all
-}
-
-function sort_linux_names
-{
- mkdir -p $TDIR
- pushd $TDIR > /dev/null
- for i in $*; do echo $i; done | sed -e 's/v//' |
-   awk -F. ' { if (NF < 3) print $1, $2, 0, 0; else if (NF < 4) print $1, $2, $3, 0; else print $1, $2, $3, $4 }' | while read major minor micro nano; do
-  echo $major >> majors
-  echo $minor >> ${major}.minors
-  echo $micro >> ${major}.${minor}.micros
-  echo $nano >> ${major}.${minor}.${micro}.nano
- done
- sort -n majors |uniq > majors.tmp
- mv majors.tmp majors
- for i in *.minors; do
-  sort -n $i |uniq > minors.tmp
-  mv minors.tmp $i
- done
- for i in *.micros; do
-  sort -n $i |uniq > micros.tmp
-  mv micros.tmp $i
- done
- for i in *.nano; do
-  sort -n $i |uniq > nanos.tmp
-  mv nanos.tmp $i
- done
-
- for major in $(cat majors); do
-  for minor in $(cat ${major}.minors); do
-   sort -n ${major}.${minor}.micros > tmp.micros
-   for micro in $(cat tmp.micros); do
-    if [[ -s ${major}.${minor}.${micro}.nano ]]; then
-     sort -n ${major}.${minor}.${micro}.nano > tmp.nano
-     for nano in $(cat tmp.nano); do
-      if [[ $micro -eq 0 ]]; then
-       echo v${major}.${minor}
-      else
-       if [[ $nano -eq 0 ]]; then
-        echo v${major}.${minor}.${micro}
-       else
-        echo v${major}.${minor}.${micro}.${nano}
-       fi
-      fi
-     done
-    else
-     if [[ $micro -eq 0 ]]; then
-      echo v${major}.${minor}
-     else
-      echo v${major}.${minor}.${micro}
-     fi
-    fi
-   done
-  done
- done
- popd > /dev/null
- rm -rf $TDIR
-}
-
-function link_reduce {
- pushd $1 > /dev/null || exit
- of=$(find . -type f -links 1 |grep -v .git|wc -l)
- find . -type f -links 1 | grep -v .git | while read f; do
-  if [[ -f ../$2/$f ]]; then
-   cmp -s $f ../$2/$f || continue
-   rm -f $f
-   ln ../$2/$f $f
-  fi
- done
- nf=$(find . -type f -links 1 |grep -v .git|wc -l)
- echo old single-link files: $of, new single-link files: $nf
- popd > /dev/null
-}
+set -e
+STABLE_REPO=${STABLE_REPO:-/remrepos/linux-3.0.y}
+if [[ ! -d $STABLE_REPO ]]; then
+ echo "repo $STABLE_REPO not found"
+ exit 1
+fi
+if [[ ! -f $TAG_LIST ]]; then
+ echo "tag list $TAG_LIST not found"
+ exit 1
+fi
 
 #
 # Update stable linux and git the list of tags
 #
-pushd $STABLE_REPO > /dev/null
-PullAll > /dev/null 2>&1
-list=$(sort_linux_names `git tag | sed -e '/-rc.*$/d' -e '/latest/d' -e '/-pre/d' -e '/tree/d' -e '/v2.6.11/d'`)
-popd > /dev/null
-
-i=0
-rm -f $LIST
-for tag in $list; do
- echo $tag >> $LIST
-done
-for tag in $list; do
- [[ -d $tag ]] && continue
+topdir=$(pwd)
+for tag in $(cat TAG_LIST); do
+ if [[ -f $tag/.holdme ]]; then
+  touch -r $tag/.holdme $tag
+  continue
+ fi
+ echo $tag
  #
  # Clone into new tag
  #
- git clone -n $STABLE_REPO $tag > /dev/null || break
- cd $tag > /dev/null
- git checkout -q -b $tag $tag
- if [[ $? -ne 0 ]]; then
-  cd .. > /dev/null
-  rm -rf $tag
-  continue
- fi
- #
- # Clean out .git and make it read only
- #
+ git clone -q -s $STABLE_REPO $tag
+ pushd $tag > /dev/null
+ git checkout $tag > /dev/null 2>&1
+ touch --date="$(git log -n 1 --pretty=format:%aD)" .holdme
  rm -rf .git
- find . -type f -print0|xargs -0 chmod 444
- cd .. > /dev/null
- line=$(grep -n ^$tag\$ $LIST |sed 's/:.*$//')
- if [[ -z $NOLINK ]]; then
-  if [[ $line -gt 1 ]]; then
-   pver=$(head -$((line - 1)) $LIST |tail -1)
-   #
-   # Link files with previous version if possible
-   #
-   link_reduce $tag $pver
-  fi
+ touch -r .holdme .
+ nice fake-dedup.py $topdir > /dev/null
+ popd > /dev/null
+ if [[ $((--limit)) -le 0 ]]; then
+  break
  fi
 done
-rm -f $LIST
