@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2017 by Matthew Jacob
+# Copyright (c) 2020 by Matthew Jacob
 # All rights reserved.
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -44,11 +44,10 @@ cp /dev/null $LOG
 #
 # Update tags and cscope files
 #
-for d in v*
-do
+for d in v*; do
  case $d in
  # Change this to other v* patterns to cover more
-  v2.6.30*|v[345].[0-9])
+  v[345].[0-9])
   pushd  $d >/dev/null || exit 1
   if [[ ! -f tags || $force -gt 0 ]]; then
    echo $d >> $LOG
@@ -60,11 +59,3 @@ do
   ;;
  esac
 done
-
-if [[ -d linux ]]; then
- cd linux > /dev/null
- echo linux >> $LOG
- make defconfig > /dev/null 2>&1
- make -j $NCPU all >> $LOG 2>&1
- make tags cscope > /dev/null 2>&1
-fi
