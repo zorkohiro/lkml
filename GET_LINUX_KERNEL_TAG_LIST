@@ -1,0 +1,112 @@
+#!/bin/bash
+#
+# Copyright (c) 2017 by Matthew Jacob
+# All rights reserved.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of The version 2 GNU General Public License as
+#  published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+#
+# Matthew Jacob
+# Feral Software
+# 253 Lowell Street
+# Redwood City, CA 94062
+# USA
+#
+# gpl at feral com
+#
+TDIR=$(mktemp -d)
+STABLE_REPO=${STABLE_REPO-/remrepos/linux-3.0.y}
+if [[ ! -d $STABLE_REPO ]]; then
+ echo "cannot find stable repo $STABLE_REPO"
+ exit 1
+fi
+
+function PullAll
+{
+ git branch -r | grep -v '\->' | while read remote; do
+  git branch --track "${remote#origin/}" "$remote" > /dev/null 2>&1
+ done
+ git fetch --all
+ git pull --all
+}
+
+function sort_linux_names
+{
+ mkdir -p $TDIR
+ pushd $TDIR > /dev/null
+ for i in $*; do echo $i; done | sed -e 's/v//' |
+   awk -F. ' { if (NF < 3) print $1, $2, 0, 0; else if (NF < 4) print $1, $2, $3, 0; else print $1, $2, $3, $4 }' | while read major minor micro nano; do
+  echo $major >> majors
+  echo $minor >> ${major}.minors
+  echo $micro >> ${major}.${minor}.micros
+  echo $nano >> ${major}.${minor}.${micro}.nano
+ done
+ sort -n majors |uniq > majors.tmp
+ mv majors.tmp majors
+ for i in *.minors; do
+  sort -n $i |uniq > minors.tmp
+  mv minors.tmp $i
+ done
+ for i in *.micros; do
+  sort -n $i |uniq > micros.tmp
+  mv micros.tmp $i
+ done
+ for i in *.nano; do
+  sort -n $i |uniq > nanos.tmp
+  mv nanos.tmp $i
+ done
+
+ for major in $(cat majors); do
+  for minor in $(cat ${major}.minors); do
+   sort -n ${major}.${minor}.micros > tmp.micros
+   for micro in $(cat tmp.micros); do
+    if [[ -s ${major}.${minor}.${micro}.nano ]]; then
+     sort -n ${major}.${minor}.${micro}.nano > tmp.nano
+     for nano in $(cat tmp.nano); do
+      if [[ $micro -eq 0 ]]; then
+       echo v${major}.${minor}
+      else
+       if [[ $nano -eq 0 ]]; then
+        echo v${major}.${minor}.${micro}
+       else
+        echo v${major}.${minor}.${micro}.${nano}
+       fi
+      fi
+     done
+    else
+     if [[ $micro -eq 0 ]]; then
+      echo v${major}.${minor}
+     else
+      echo v${major}.${minor}.${micro}
+     fi
+    fi
+   done
+  done
+ done
+ popd > /dev/null
+ rm -rf $TDIR
+}
+
+#
+# Update stable linux and git the list of tags
+#
+pushd $STABLE_REPO > /dev/null
+PullAll > /dev/null 2>&1
+list=$(sort_linux_names `git tag | sed -e '/-rc.*$/d' -e '/latest/d' -e '/-pre/d' -e '/tree/d' -e '/v2.6*/d'`)
+popd > /dev/null
+
+i=0
+for tag in $list; do
+ echo $tag
+done
