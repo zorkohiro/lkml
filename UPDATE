@@ -75,7 +75,6 @@ for tag in $(cat TAG_LIST); do
  touch --date="$(git log -n 1 --pretty=format:%aD)" .holdme
  rm -rf .git
  touch -r .holdme .
- nice fake-dedup.py $topdir > /dev/null
  popd > /dev/null
  if [[ $((--limit)) -le 0 ]]; then
   break
