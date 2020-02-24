@@ -61,10 +61,12 @@ fi
 #
 topdir=$(pwd)
 for tag in $(cat TAG_LIST); do
- if [[ -f $tag/.holdme ]]; then
-  touch -r $tag/.holdme $tag
-  continue
+ dfree=$(/bin/df .|tail -1|awk ' { print $5 }'|sed 's/%//')
+ if [[ $dfree -gt 97 ]]; then
+  echo Filesystem too full at ${dfree}%
+  break
  fi
+ [[ -f $tag/.holdme ]] && continue
  echo $tag
  #
  # Clone into new tag
@@ -72,7 +74,8 @@ for tag in $(cat TAG_LIST); do
  git clone -q -s $STABLE_REPO $tag
  pushd $tag > /dev/null
  git checkout $tag > /dev/null 2>&1
- touch --date="$(git log -n 1 --pretty=format:%aD)" .holdme
+ ds=$(git log -n 1 --pretty=format:%aD)
+ touch --date="$ds" .holdme
  rm -rf .git
  touch -r .holdme .
  popd > /dev/null
