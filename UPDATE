@@ -25,7 +25,6 @@
 #
 # gpl at feral com
 #
-TDIR=$(mktemp -d)
 LIST=$(mktemp)
 TAG_LIST=${TAG_LIST-./TAG_LIST}
 PATH=${HOME}/bin:$PATH
@@ -46,7 +45,7 @@ elif [[ $# -ne 0 ]]; then
 fi
 
 set -e
-STABLE_REPO=${STABLE_REPO:-/remrepos/linux-3.0.y}
+STABLE_REPO=.linux-stable
 if [[ ! -d $STABLE_REPO ]]; then
  echo "repo $STABLE_REPO not found"
  exit 1
@@ -71,12 +70,11 @@ for tag in $(cat TAG_LIST); do
  #
  # Clone into new tag
  #
- git clone -q -s $STABLE_REPO $tag
+ git clone -s -q $STABLE_REPO $tag
  pushd $tag > /dev/null
  git checkout $tag > /dev/null 2>&1
  ds=$(git log -n 1 --pretty=format:%aD)
  touch --date="$ds" .holdme
- rm -rf .git
  touch -r .holdme .
  popd > /dev/null
  if [[ $((--limit)) -le 0 ]]; then

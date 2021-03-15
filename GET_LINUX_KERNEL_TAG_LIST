@@ -26,10 +26,13 @@
 # gpl at feral com
 #
 TDIR=$(mktemp -d)
-STABLE_REPO=${STABLE_REPO-/remrepos/linux-3.0.y}
+STABLE_REPO=.linux-stable
 if [[ ! -d $STABLE_REPO ]]; then
- echo "cannot find stable repo $STABLE_REPO"
- exit 1
+ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git $STABLE_REPO
+ if [[ $? -ne 0 ]]; then
+  echo "cannot clone stable repo $STABLE_REPO"
+  exit 1
+ fi
 fi
 
 function PullAll
