@@ -106,7 +106,7 @@ function sort_linux_names
 #
 pushd $STABLE_REPO > /dev/null
 PullAll > /dev/null 2>&1
-list=$(sort_linux_names `git tag | sed -e '/-rc.*$/d' -e '/latest/d' -e '/-pre/d' -e '/tree/d' -e '/v2.6*/d' -e '/vlinux/d'`)
+list=$(sort_linux_names `git tag | sed -e '/-rc.*$/d' -e '/latest/d' -e '/-pre/d' -e '/tree/d' -e '/v2.6*/d' -e '/linux-5.17.y/d'`)
 popd > /dev/null
 
 i=0
